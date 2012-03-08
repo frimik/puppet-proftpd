@@ -4,9 +4,30 @@
 #
 # Document parameters here
 #
-# [*servers*]
-#   Description of servers class parameter.  e.g. "Specify one or more
-#   upstream ntp servers as an array."
+# [*ensure*]
+#   ensure parameter must be 'running', 'present', 'stopped' or 'absent'.
+#   Defaults to 'running'. The various settings controls not only the package,
+#   but also the service and configuration states.
+#
+# [*autoupgrade*]
+#   If set to true, will ensure latest package is always installed.
+#
+# [*package*]
+#   The name of the package to manage. Defaults to 'proftpd'.
+#
+# [*config_file*]
+#   The configuration file. Defaults to '/etc/proftpd.conf'.
+#
+# [*config_file_replace*]
+#   Whether or not the configuration file should be replaced or used strictly
+#   for initialization purposes.
+#
+# [*manage_config*]
+#   Whether the config file is managed at all.
+#
+# [*source*]
+#   Configuration file source url
+#
 #
 # == Variables
 #
@@ -34,7 +55,7 @@
 # Copyright 2012 Marin Software Inc, unless otherwise noted.
 #
 class proftpd (
-  $ensure = 'present',
+  $ensure = 'running',
   $autoupgrade = false,
   $package = $proftpd::params::package,
   $config_file = $proftpd::params::config_file,
@@ -44,20 +65,32 @@ class proftpd (
 ) inherits proftpd::params {
 
   case $ensure {
-    'present': {
+    'running': {
       $dir_ensure = 'directory'
+      $service_ensure = 'running'
       if $autoupgrade == true {
         $package_ensure = 'latest'
       } else {
         $package_ensure = 'present'
       }
     }
+    'present': {
+      $dir_ensure = 'directory'
+      $service_ensure = undef
+      $package_ensure = 'present'
+    }
+    'stopped': {
+      $dir_ensure = 'directory'
+      $service_ensure = 'stopped'
+      $package_ensure = 'present'
+    }
+
     'absent': {
-      $package_ensure = 'absent'
       $dir_ensure = 'absent'
+      $package_ensure = 'absent'
     }
     default: {
-      fail('ensure parameter must be present or absent')
+      fail("ensure parameter must be 'running', 'present', 'stopped' or 'absent'")
     }
   }
 
@@ -65,9 +98,19 @@ class proftpd (
     ensure  => $package_ensure,
   }
 
+  service { "proftpd":
+    ensure    => $service_ensure,
+    enable      => $service_ensure ? {
+      'present' => undef,
+      'running' => true,
+      'stopped' => false,
+    },
+    hasstatus  => true,
+  }
+
   if $manage_config {
     file { $config_file:
-      ensure  => $ensure,
+      ensure  => present,
       owner   => 'root',
       group   => 'root',
       mode    => '0440',
