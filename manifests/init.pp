@@ -1,5 +1,7 @@
 # ProFTPD class
 #
+# TODO Trigger service restart or reload on config changes.
+#
 # == Parameters
 #
 # Document parameters here
@@ -28,6 +30,9 @@
 # [*source*]
 #   Configuration file source url
 #
+# [*utils*]
+#   If set to true (default), will include proftpd-utils package.
+#
 #
 # == Variables
 #
@@ -41,10 +46,17 @@
 #
 # == Examples
 #
-# Put some examples on how to use your class here.
+#   class{'proftpd':
+#     ensure        => "running",
+#     package       => 'proftpd-mysql',
+#     manage_config => true,
+#     source        => "puppet://puppet/${module_name}/psftp/proftpd.conf",
+#   }
 #
-#   $example_var = "blah"
-#   include example_class
+# This includes the proftpd class, tells it to install the 'proftpd-mysql'
+# package instead of the default 'proftpd'. Config should be managed and the
+# configuration file source should be taken from a path in the current module
+# (ie, the _including_ module, not the _included_ (proftpd)).
 #
 # == Authors
 #
@@ -61,7 +73,9 @@ class proftpd (
   $config_file = $proftpd::params::config_file,
   $config_file_replace = true,
   $manage_config = true,
-  $source = $proftpd::params::source
+  $source = $proftpd::params::source,
+  $utils = true,
+  $utils_package = $proftpd::params::utils_package
 ) inherits proftpd::params {
 
   case $ensure {
@@ -96,6 +110,12 @@ class proftpd (
 
   package { $package:
     ensure  => $package_ensure,
+  }
+
+  if $utils {
+    package { $utils_package:
+      ensure => $package_ensure,
+    }
   }
 
   service { "proftpd":
