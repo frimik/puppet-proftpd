@@ -28,7 +28,10 @@
 #   Whether the config file is managed at all.
 #
 # [*source*]
-#   Configuration file source url
+#   Configuration file source url (choose one of source or content)
+#
+# [*content*]
+#   Configuration file content (choose one of source or content)
 #
 # [*utils*]
 #   If set to true (default), will include proftpd-utils package.
@@ -73,7 +76,8 @@ class proftpd (
   $config_file = $proftpd::params::config_file,
   $config_file_replace = true,
   $manage_config = true,
-  $source = $proftpd::params::source,
+  $source = false,
+  $content = false,
   $utils = true,
   $utils_package = $proftpd::params::utils_package
 ) inherits proftpd::params {
@@ -108,6 +112,21 @@ class proftpd (
     }
   }
 
+  if !$content {
+    if !$source {
+      $template = false
+      $real_source = $proftpd::params::source
+    } else {
+      $template = false
+      $real_source = $source
+    }
+  } else {
+    $template = true
+    $real_content = $content
+  }
+
+
+
   package { $package:
     ensure  => $package_ensure,
   }
@@ -129,14 +148,26 @@ class proftpd (
   }
 
   if $manage_config {
-    file { $config_file:
-      ensure  => present,
-      owner   => 'root',
-      group   => 'root',
-      mode    => '0440',
-      replace => $config_file_replace,
-      source  => $source,
-      require => Package[$package],
+    if $template {
+      file { $config_file:
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0440',
+        replace => $config_file_replace,
+        content => $real_content,
+        require => Package[$package],
+      }
+    } else {
+      file { $config_file:
+        ensure  => present,
+        owner   => 'root',
+        group   => 'root',
+        mode    => '0440',
+        replace => $config_file_replace,
+        source  => $real_source,
+        require => Package[$package],
+      }
     }
   }
 
